@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RideConnect UI Prototype</title>
+  <!-- React and ReactDOM from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+  <!-- Babel for JSX -->
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.20.15/babel.min.js"></script>
+  <!-- Tailwind CSS from CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <!-- Google Maps API -->
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAAEtT-vmE_69FI2yQ3rbQqN3_FxJcUTw8&libraries=places"></script>
+  <style>
+    /* Custom styles for enhanced UI */
+    body {
+      font-family: 'Roboto', sans-serif;
+    }
+    .map-container {
+      height: 100%;
+      width: 100%;
+      border-radius: 12px;
+    }
+    .sos-button:hover {
+      transform: scale(1.1);
+      transition: transform 0.2s ease-in-out;
+    }
+    .modal {
+      background: rgba(0, 0, 0, 0.7);
+      animation: fadeIn 0.3s ease-in-out;
+    }
+    .card {
+      transition: transform 0.2s ease-in-out;
+    }
+    .card:hover {
+      transform: translateY(-2px);
+    }
+    .gradient-bg {
+      background: linear-gradient(135deg, #0066CC, #2ECC71);
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes slideIn {
+      from { transform: translateX(100%); }
+      to { transform: translateX(0); }
+    }
+    .screen {
+      animation: slideIn 0.3s ease-in-out;
+    }
+  </style>
+</head>
+<body class="bg-gray-100">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    // Color Palette
+    const lightColors = {
+      background: '#F6F6F6',
+      card: '#FFFFFF',
+      text: '#222222',
+      accent: '#FFC300', // Uber yellow
+      primary: '#000000', // Uber black
+      border: '#E0E0E0',
+      error: '#E74C3C',
+      input: '#F6F6F6',
+      icon: '#000000',
+    };
+    const darkColors = {
+      background: '#181818',
+      card: '#222222',
+      text: '#FFFFFF',
+      accent: '#FFC300',
+      primary: '#FFFFFF',
+      border: '#333333',
+      error: '#E74C3C',
+      input: '#222222',
+      icon: '#FFC300',
+    };
+
+    // Main App Component
+    function App() {
+      const [currentScreen, setCurrentScreen] = React.useState('login');
+      const [darkMode, setDarkMode] = React.useState(true);
+      const [showNotifications, setShowNotifications] = React.useState(false);
+      const [notifications, setNotifications] = React.useState([
+        { id: 1, text: 'Your ride with John Doe is complete.', read: false },
+        { id: 2, text: 'Driver Sam Wilson is nearby.', read: false },
+        { id: 3, text: 'Your documents have been verified.', read: true },
+      ]);
+      const [navStack, setNavStack] = React.useState([]);
+      const colors = darkMode ? darkColors : lightColors;
+
+      // Navigation function
+      const navigate = (screen) => {
+        setNavStack(stack => (currentScreen !== screen ? [...stack, currentScreen] : stack));
+        setCurrentScreen(screen);
+      };
+
+      const goBack = () => {
+        setNavStack(stack => {
+          if (stack.length === 0) return stack;
+          const prev = stack[stack.length - 1];
+          setCurrentScreen(prev);
+          return stack.slice(0, -1);
+        });
+      };
+
+      React.useEffect(() => {
+        document.body.style.background = colors.background;
+      }, [darkMode, colors.background]);
+
+      const unreadCount = notifications.filter(n => !n.read).length;
+
+      const handleBellClick = () => {
+        setShowNotifications(!showNotifications);
+        // Mark all as read when opening
+        if (!showNotifications) {
+          setNotifications(notifications.map(n => ({ ...n, read: true })));
+        }
+      };
+
+      return (
+        <div className={`min-h-screen flex flex-col screen ${darkMode ? 'dark' : ''}`} style={{background: colors.background}}>
+          <div className="flex items-center p-4 space-x-4 relative">
+            {currentScreen !== 'login' && currentScreen !== 'home' && currentScreen !== 'otp' && (
+              <button
+                onClick={goBack}
+                className="focus:outline-none mr-2"
+                style={{background: 'none', border: 'none', color: colors.accent, fontSize: 22}}
+                aria-label="Back"
+              >
+                <i className="fas fa-arrow-left"></i>
+              </button>
+            )}
+            <div className="flex items-center space-x-4 ml-auto">
+              {currentScreen !== 'login' && currentScreen !== 'otp' && (
+                <div className="relative">
+                  <button
+                    className="focus:outline-none"
+                    style={{background: 'none', border: 'none', color: colors.accent, fontSize: 22, position: 'relative'}}
+                    onClick={handleBellClick}
+                    aria-label="Notifications"
+                  >
+                    <i className="fas fa-bell"></i>
+                    {unreadCount > 0 && (
+                      <span style={{
+                        position: 'absolute',
+                        top: -4,
+                        right: -4,
+                        background: '#E74C3C',
+                        color: '#fff',
+                        borderRadius: '50%',
+                        fontSize: 10,
+                        padding: '2px 5px',
+                        fontWeight: 'bold',
+                      }}>{unreadCount}</span>
+                    )}
+                  </button>
+                  {showNotifications && (
+                    <div style={{
+                      position: 'absolute',
+                      right: 0,
+                      top: '2.5rem',
+                      minWidth: 260,
+                      background: colors.card,
+                      color: colors.text,
+                      borderRadius: 12,
+                      boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+                      zIndex: 50,
+                    }}>
+                      <div className="p-4 border-b font-bold" style={{borderColor: colors.border}}>Notifications</div>
+                      {notifications.length === 0 ? (
+                        <div className="p-4 text-sm">No notifications</div>
+                      ) : (
+                        notifications.map(n => (
+                          <div key={n.id} className="p-4 text-sm" style={{background: n.read ? 'none' : colors.input, fontWeight: n.read ? 'normal' : 'bold'}}>
+                            {n.text}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+              <button
+                className="flex items-center px-3 py-1 rounded-full border border-gray-400 text-xs font-semibold focus:outline-none"
+                style={{background: darkMode ? '#222' : '#fff', color: darkMode ? '#FFC300' : '#000'}}
+                onClick={() => setDarkMode(!darkMode)}
+              >
+                <i className={`fas fa-${darkMode ? 'sun' : 'moon'} mr-2`}></i>
+                {darkMode ? 'Light Mode' : 'Dark Mode'}
+              </button>
+            </div>
+          </div>
+          {currentScreen === 'login' && <LoginScreen navigate={navigate} colors={colors} />}
+          {currentScreen === 'otp' && <OtpScreen navigate={navigate} colors={colors} />}
+          {currentScreen === 'driverSetup' && <DriverSetupScreen navigate={navigate} colors={colors} />}
+          {currentScreen === 'home' && <HomeScreen navigate={navigate} colors={colors} />}
+          {currentScreen === 'driverProfile' && <DriverProfileScreen navigate={navigate} colors={colors} />}
+          {currentScreen === 'call' && <CallScreen navigate={navigate} colors={colors} />}
+          {currentScreen === 'logs' && <LogsScreen navigate={navigate} colors={colors} />}
+          {currentScreen === 'review' && <ReviewScreen navigate={navigate} colors={colors} />}
+          {currentScreen === 'emergency' && <EmergencyScreen navigate={navigate} colors={colors} />}
+          {currentScreen === 'admin' && <AdminScreen navigate={navigate} colors={colors} />}
+          {currentScreen === 'account' && <AccountScreen colors={colors} />}
+          {currentScreen !== 'admin' && currentScreen !== 'login' && currentScreen !== 'otp' && (
+            <BottomNav
+              currentScreen={currentScreen}
+              setCurrentScreen={setCurrentScreen}
+              colors={colors}
+            />
+          )}
+        </div>
+      );
+    }
+
+    // Login Screen
+    function LoginScreen({ navigate, colors }) {
+      return (
+        <div className="flex flex-col items-center justify-center h-screen w-full" style={{background: colors.background}}>
+          <i className="fas fa-car text-8xl mb-6 animate-bounce" style={{color: colors.accent}}></i>
+          <h1 className="text-3xl font-bold mb-8" style={{color: colors.primary}}>RideConnect</h1>
+          <div className="w-80 p-6 rounded-xl shadow-lg" style={{background: colors.card}}>
+            <input
+              type="text"
+              placeholder="Enter Phone Number"
+              className="w-full p-3 border rounded-lg mb-4 focus:outline-none focus:ring-2"
+              style={{background: colors.input, color: colors.text, borderColor: colors.border}}
+            />
+            <button
+              className="w-full p-3 rounded-lg font-bold"
+              style={{background: colors.accent, color: '#000'}}
+              onClick={() => navigate('otp')}
+            >
+              Send OTP
+            </button>
+          </div>
+          <p className="text-sm mt-4" style={{color: colors.text}}>Powered by xAI</p>
+        </div>
+      );
+    }
+
+    // OTP Verification Screen
+    function OtpScreen({ navigate, colors }) {
+      return (
+        <div className="flex flex-col items-center justify-center h-screen w-full" style={{background: colors.background}}>
+          <h2 className="text-2xl font-bold mb-6" style={{color: colors.primary}}>Verify Your Number</h2>
+          <div className="w-80 p-6 rounded-xl shadow-lg" style={{background: colors.card}}>
+            <div className="flex justify-between mb-4">
+              {[...Array(6)].map((_, i) => (
+                <input
+                  key={i}
+                  type="text"
+                  maxLength="1"
+                  className="w-10 h-10 text-center border rounded-lg focus:outline-none focus:ring-2"
+                  style={{background: colors.input, color: colors.text, borderColor: colors.border}}
+                />
+              ))}
+            </div>
+            <button
+              className="w-full p-3 rounded-lg font-bold"
+              style={{background: colors.accent, color: '#000'}}
+              onClick={() => navigate('home')}
+            >
+              Verify OTP
+            </button>
+            <p className="text-sm mt-2 text-center cursor-pointer hover:underline" style={{color: colors.accent}}>
+              Resend OTP (30s)
+            </p>
+          </div>
+        </div>
+      );
+    }
+
+    // Driver Setup Screen
+    function DriverSetupScreen({ navigate, colors }) {
+      return (
+        <div className="flex flex-col h-screen w-full" style={{background: colors.background}}>
+          <h2 className="text-xl font-bold p-4" style={{color: colors.primary}}>Complete Your Profile</h2>
+          <div className="flex-1 p-4 overflow-y-auto">
+            <input
+              type="text"
+              placeholder="Full Name"
+              className="w-full p-3 border rounded-lg mb-4 focus:outline-none focus:ring-2"
+              style={{background: colors.input, color: colors.text, borderColor: colors.border}}
+            />
+            <input
+              type="email"
+              placeholder="Email"
+              className="w-full p-3 border rounded-lg mb-4 focus:outline-none focus:ring-2"
+              style={{background: colors.input, color: colors.text, borderColor: colors.border}}
+            />
+            <select
+              className="w-full p-3 border rounded-lg mb-4 focus:outline-none focus:ring-2"
+              style={{background: colors.input, color: colors.text, borderColor: colors.border}}
+            >
+              <option value="">Select Vehicle Type</option>
+              <option value="car">Car</option>
+              <option value="bike">Bike</option>
+              <option value="auto">Auto</option>
+            </select>
+            <input
+              type="text"
+              placeholder="License Plate"
+              className="w-full p-3 border rounded-lg mb-4 focus:outline-none focus:ring-2"
+              style={{background: colors.input, color: colors.text, borderColor: colors.border}}
+            />
+            <label className="block mb-2 font-semibold" style={{color: colors.text}}>Upload Documents</label>
+            <div className="grid grid-cols-3 gap-2 mb-4">
+              <input type="file" className="text-sm" style={{color: colors.text}} />
+              <input type="file" className="text-sm" style={{color: colors.text}} />
+              <input type="file" className="text-sm" style={{color: colors.text}} />
+            </div>
+            <div className="flex justify-between mb-4 text-sm" style={{color: colors.text}}>
+              <span>License</span>
+              <span>Registration</span>
+              <span>ID Proof</span>
+            </div>
+            <button
+              className="w-full p-3 rounded-lg font-bold"
+              style={{background: colors.accent, color: '#000'}}
+              onClick={() => navigate('home')}
+            >
+              Submit for Verification
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // Home Screen (Nearby Driver Discovery)
+    function HomeScreen({ navigate, colors }) {
+      React.useEffect(() => {
+        const map = new google.maps.Map(document.getElementById('map'), {
+          center: { lat: 37.7749, lng: -122.4194 },
+          zoom: 14,
+          styles: [
+            { elementType: 'geometry', stylers: [{ color: colors.background }] },
+            { elementType: 'labels.text.fill', stylers: [{ color: colors.text }] },
+            { elementType: 'labels.text.stroke', stylers: [{ color: colors.card }] },
+            { featureType: 'road', stylers: [{ visibility: 'simplified' }] },
+          ],
+        });
+        // Mock driver markers
+        const drivers = [
+          { lat: 37.7749, lng: -122.4194, name: 'John Doe', vehicle: 'Car' },
+          { lat: 37.7760, lng: -122.4170, name: 'Jane Smith', vehicle: 'Bike' },
+          { lat: 37.7730, lng: -122.4210, name: 'Sam Wilson', vehicle: 'Auto' },
+        ];
+        drivers.forEach(driver => {
+          new google.maps.Marker({
+            position: { lat: driver.lat, lng: driver.lng },
+            map,
+            title: driver.name,
+            icon: {
+              url: driver.vehicle === 'Car' ? 'http://maps.google.com/mapfiles/ms/icons/black-dot.png' :
+                    driver.vehicle === 'Bike' ? 'http://maps.google.com/mapfiles/ms/icons/yellow-dot.png' :
+                    'http://maps.google.com/mapfiles/ms/icons/white-dot.png',
+              scaledSize: new google.maps.Size(30, 30),
+            },
+          });
+        });
+      }, [colors.background, colors.text, colors.card]);
+
+      return (
+        <div className="flex flex-col h-screen w-full" style={{background: colors.background}}>
+          <div id="map" className="map-container h-[60%]" style={{borderRadius: 12, boxShadow: '0 4px 6px rgba(0,0,0,0.1)'}}></div>
+          <div className="p-4 flex-1 overflow-y-auto">
+            <select
+              className="w-full p-3 border rounded-lg mb-4 focus:outline-none focus:ring-2"
+              style={{background: colors.input, color: colors.text, borderColor: colors.border}}
+            >
+              <option value="">Select Vehicle Type</option>
+              <option value="car">Car</option>
+              <option value="bike">Bike</option>
+              <option value="auto">Auto</option>
+            </select>
+            <div className="space-y-4">
+              {[
+                { name: 'John Doe', vehicle: 'Car', distance: '2.1 km', rating: 4 },
+                { name: 'Jane Smith', vehicle: 'Bike', distance: '1.8 km', rating: 5 },
+                { name: 'Sam Wilson', vehicle: 'Auto', distance: '3.2 km', rating: 3 },
+              ].map(driver => (
+                <div key={driver.name} className="p-4 rounded-lg shadow-md card flex justify-between items-center" style={{background: colors.card}}>
+                  <div className="flex items-center">
+                    <i className={`fas fa-${driver.vehicle.toLowerCase()} text-4xl mr-3`} style={{color: colors.accent}}></i>
+                    <div>
+                      <p className="font-bold" style={{color: colors.text}}>{driver.name}</p>
+                      <p className="text-sm" style={{color: colors.text}}>{driver.vehicle} • {driver.distance} away</p>
+                      <p className="text-sm" style={{color: colors.accent}}>{'★'.repeat(driver.rating)}{'☆'.repeat(5 - driver.rating)}</p>
+                    </div>
+                  </div>
+                  <button
+                    className="px-4 py-2 rounded-lg font-bold"
+                    style={{background: colors.accent, color: '#000'}}
+                    onClick={() => navigate('driverProfile')}
+                  >
+                    View
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+          <button
+            className="fixed bottom-4 right-4 w-14 h-14 rounded-full flex items-center justify-center sos-button"
+            style={{background: colors.error, color: '#fff'}}
+            onClick={() => navigate('emergency')}
+          >
+            <i className="fas fa-exclamation-triangle text-2xl"></i>
+          </button>
+        </div>
+      );
+    }
+
+    // Driver Profile Screen
+    function DriverProfileScreen({ navigate, colors }) {
+      return (
+        <div className="flex flex-col h-screen w-full" style={{background: colors.background}}>
+          <h2 className="text-xl font-bold p-4" style={{color: colors.primary}}>Driver Profile</h2>
+          <div className="p-4 flex-1 overflow-y-auto">
+            <div className="flex items-center mb-6">
+              <img
+                src="https://via.placeholder.com/80"
+                alt="Driver"
+                className="w-20 h-20 rounded-full mr-4"
+                style={{border: `2px solid ${colors.accent}`}}
+              />
+              <div>
+                <p className="font-bold text-lg" style={{color: colors.text}}>John Doe</p>
+                <p className="text-sm" style={{color: colors.text}}>Car • License: ABC123</p>
+                <p className="text-sm" style={{color: colors.accent}}>★★★★☆</p>
+              </div>
+            </div>
+            <div className="mb-6">
+              <p className="font-bold" style={{color: colors.text}}>Recent Reviews</p>
+              <div className="space-y-2">
+                <p className="text-sm" style={{color: colors.text}}>Great driver, very punctual!</p>
+                <p className="text-sm" style={{color: colors.text}}>Friendly and safe ride.</p>
+              </div>
+            </div>
+            <button
+              className="w-full p-3 rounded-lg font-bold mb-4"
+              style={{background: colors.accent, color: '#000'}}
+              onClick={() => navigate('call')}
+            >
+              <i className="fas fa-phone mr-2"></i> Call Driver
+            </button>
+            <button
+              className="w-full p-3 rounded-lg font-bold"
+              style={{background: '#27ae60', color: '#fff'}}
+              onClick={() => navigate('home')}
+            >
+              <i className="fas fa-map-pin mr-2"></i> Share Location
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // Peer-to-Peer Calling Screen
+    function CallScreen({ navigate, colors }) {
+      return (
+        <div className="fixed inset-0 modal flex items-center justify-center" style={{background: 'rgba(0,0,0,0.7)'}}>
+          <div className="p-6 rounded-xl shadow-lg w-80 text-center" style={{background: colors.card}}>
+            <img
+              src="https://via.placeholder.com/80"
+              alt="Driver"
+              className="w-16 h-16 rounded-full mx-auto mb-4"
+            />
+            <p className="font-bold" style={{color: colors.text}}>Calling John Doe</p>
+            <p className="text-sm" style={{color: colors.text}}>00:12</p>
+            <div className="flex justify-center space-x-4 mt-4">
+              <button className="p-2 rounded-full" style={{background: colors.input, color: colors.icon}}>
+                <i className="fas fa-microphone"></i>
+              </button>
+              <button className="p-2 rounded-full" style={{background: colors.input, color: colors.icon}}>
+                <i className="fas fa-volume-up"></i>
+              </button>
+              <button
+                className="p-2 rounded-full"
+                style={{background: colors.error, color: '#fff'}}
+                onClick={() => navigate('driverProfile')}
+              >
+                <i className="fas fa-phone-slash"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Call & Ride Logs Screen
+    function LogsScreen({ navigate, colors }) {
+      const logs = [
+        { type: 'call', name: 'John Doe', time: 'Jul 1, 2025, 10:30 AM' },
+        { type: 'ride', name: 'John Doe', time: 'Jul 1, 2025, 10:35 AM', location: '123 Main St' },
+        { type: 'call', name: 'Jane Smith', time: 'Jul 1, 2025, 11:00 AM' },
+      ];
+
+      return (
+        <div className="flex flex-col h-screen w-full" style={{background: colors.background}}>
+          <h2 className="text-xl font-bold p-4" style={{color: colors.primary}}>Your History</h2>
+          <div className="p-4 flex-1 overflow-y-auto">
+            {logs.map((log, index) => (
+              <div key={index} className="p-4 rounded-lg shadow-md card mb-4" style={{background: colors.card}}>
+                <div className="flex items-center">
+                  <i className={`fas fa-${log.type === 'call' ? 'phone' : 'map-pin'} mr-3 text-2xl`} style={{color: colors.accent}}></i>
+                  <div className="flex-1">
+                    <p className="font-bold" style={{color: colors.text}}>{log.type === 'call' ? `Call to ${log.name}` : `Ride with ${log.name}`}</p>
+                    <p className="text-sm" style={{color: colors.text}}>{log.time}</p>
+                    {log.location && <p className="text-sm" style={{color: colors.text}}>Location: {log.location}</p>}
+                    {log.type === 'ride' && (
+                      <button
+                        className="text-sm mt-2 hover:underline font-bold"
+                        style={{color: colors.accent, background: 'none', border: 'none'}}
+                        onClick={() => navigate('review')}
+                      >
+                        Add Review
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // Add Review Screen
+    function ReviewScreen({ navigate, colors }) {
+      return (
+        <div className="flex flex-col h-screen w-full" style={{background: colors.background}}>
+          <h2 className="text-xl font-bold p-4" style={{color: colors.primary}}>Rate Your Experience</h2>
+          <div className="p-4 flex-1">
+            <div className="flex justify-center mb-6">
+              {[...Array(5)].map((_, i) => (
+                <i
+                  key={i}
+                  className={`fas fa-star text-2xl mx-1`}
+                  style={{color: i < 4 ? colors.accent : colors.border}}
+                ></i>
+              ))}
+            </div>
+            <textarea
+              placeholder="Write your review..."
+              className="w-full p-3 border rounded-lg mb-4 h-32 focus:outline-none focus:ring-2"
+              style={{background: colors.input, color: colors.text, borderColor: colors.border}}
+            ></textarea>
+            <button
+              className="w-full p-3 rounded-lg font-bold"
+              style={{background: colors.accent, color: '#000'}}
+              onClick={() => navigate('logs')}
+            >
+              Submit Review
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // Emergency Contact Screen
+    function EmergencyScreen({ navigate, colors }) {
+      return (
+        <div className="flex flex-col h-screen w-full" style={{background: colors.background}}>
+          <h2 className="text-xl font-bold p-4" style={{color: colors.primary}}>Emergency Contact</h2>
+          <div className="p-4 flex-1">
+            <input
+              type="text"
+              placeholder="Emergency Contact Number"
+              className="w-full p-3 border rounded-lg mb-4 focus:outline-none focus:ring-2"
+              style={{background: colors.input, color: colors.text, borderColor: colors.border}}
+            />
+            <button
+              className="w-full p-3 rounded-lg font-bold mb-4"
+              style={{background: colors.accent, color: '#000'}}
+              onClick={() => navigate('home')}
+            >
+              Save Contact
+            </button>
+            <button
+              className="w-full p-3 rounded-lg font-bold sos-button"
+              style={{background: colors.error, color: '#fff'}}
+              onClick={() => alert('SOS Alert Sent with Location!')}
+            >
+              <i className="fas fa-exclamation-triangle mr-2"></i> Send SOS
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // Admin Panel Screen
+    function AdminScreen({ navigate, colors }) {
+      React.useEffect(() => {
+        const map = new google.maps.Map(document.getElementById('admin-map'), {
+          center: { lat: 37.7749, lng: -122.4194 },
+          zoom: 12,
+          styles: [
+            { elementType: 'geometry', stylers: [{ color: colors.background }] },
+            { elementType: 'labels.text.fill', stylers: [{ color: colors.text }] },
+            { elementType: 'labels.text.stroke', stylers: [{ color: colors.card }] },
+            { featureType: 'road', stylers: [{ visibility: 'simplified' }] },
+          ],
+        });
+        // Mock driver markers
+        const drivers = [
+          { lat: 37.7749, lng: -122.4194, name: 'John Doe', vehicle: 'Car' },
+          { lat: 37.7760, lng: -122.4170, name: 'Jane Smith', vehicle: 'Bike' },
+        ];
+        drivers.forEach(driver => {
+          new google.maps.Marker({
+            position: { lat: driver.lat, lng: driver.lng },
+            map,
+            title: driver.name,
+            icon: {
+              url: driver.vehicle === 'Car' ? 'http://maps.google.com/mapfiles/ms/icons/black-dot.png' :
+                    'http://maps.google.com/mapfiles/ms/icons/yellow-dot.png',
+              scaledSize: new google.maps.Size(30, 30),
+            },
+          });
+        });
+      }, [colors.background, colors.text, colors.card]);
+
+      return (
+        <div className="flex min-h-screen w-full" style={{background: colors.background}}>
+          <div className="w-64 p-6" style={{background: colors.primary, color: colors.accent}}>
+            <h2 className="text-xl font-bold mb-6">Admin Panel</h2>
+            <ul className="space-y-4">
+              <li className="cursor-pointer p-2 rounded" style={{background: 'none', color: colors.accent}}>Users</li>
+              <li className="cursor-pointer p-2 rounded" style={{background: 'none', color: colors.accent}}>Drivers</li>
+              <li className="cursor-pointer p-2 rounded" style={{background: 'none', color: colors.accent}}>Logs</li>
+              <li className="cursor-pointer p-2 rounded" style={{background: 'none', color: colors.accent}}>Analytics</li>
+            </ul>
+          </div>
+          <div className="flex-1 p-6">
+            <h2 className="text-xl font-bold mb-4" style={{color: colors.primary}}>Dashboard</h2>
+            <div id="admin-map" className="map-container h-96 mb-6" style={{borderRadius: 12, boxShadow: '0 4px 6px rgba(0,0,0,0.1)'}}></div>
+            <div className="p-6 rounded-lg shadow-md mb-6" style={{background: colors.card}}>
+              <h3 className="font-bold mb-4" style={{color: colors.text}}>Pending Driver Verifications</h3>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left" style={{color: colors.text}}>
+                    <th>Name</th>
+                    <th>Vehicle</th>
+                    <th>Documents</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-t" style={{color: colors.text}}>
+                    <td className="py-2">John Doe</td>
+                    <td>Car</td>
+                    <td>License, ID</td>
+                    <td>
+                      <button className="px-3 py-1 rounded mr-2 font-bold" style={{background: '#27ae60', color: '#fff'}}>Approve</button>
+                      <button className="px-3 py-1 rounded font-bold" style={{background: colors.error, color: '#fff'}}>Reject</button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div className="p-6 rounded-lg shadow-md" style={{background: colors.card}}>
+              <h3 className="font-bold mb-4" style={{color: colors.text}}>Analytics</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 rounded-lg" style={{background: colors.input}}>
+                  <p className="font-semibold" style={{color: colors.text}}>Active Drivers</p>
+                  <p className="text-2xl" style={{color: colors.accent}}>25</p>
+                </div>
+                <div className="p-4 rounded-lg" style={{background: colors.input}}>
+                  <p className="font-semibold" style={{color: colors.text}}>Total Rides</p>
+                  <p className="text-2xl" style={{color: colors.accent}}>150</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Account Screen
+    function AccountScreen({ colors }) {
+      return (
+        <div className="flex flex-col h-screen w-full" style={{background: colors.background}}>
+          <h2 className="text-xl font-bold p-4" style={{color: colors.primary}}>Account</h2>
+          <div className="p-4 flex-1">
+            <div className="flex flex-col items-center mb-6">
+              <i className="fas fa-user-circle text-7xl mb-4" style={{color: colors.accent}}></i>
+              <div className="font-bold text-lg mb-1" style={{color: colors.text}}>Alex Rider</div>
+              <div className="mb-1" style={{color: colors.text}}>+1 234 567 890</div>
+              <div className="mb-4" style={{color: colors.text}}>alex.rider@email.com</div>
+            </div>
+            <button className="w-full p-3 rounded-lg font-bold" style={{background: colors.error, color: '#fff'}}>Log Out</button>
+          </div>
+        </div>
+      );
+    }
+
+    // Bottom Navigation Component
+    function BottomNav({ currentScreen, setCurrentScreen, colors }) {
+      return (
+        <nav style={{
+          position: 'fixed',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: colors.card,
+          borderTop: `1px solid ${colors.border}`,
+          display: 'flex',
+          justifyContent: 'space-around',
+          alignItems: 'center',
+          height: 64,
+          zIndex: 100,
+        }}>
+          <button
+            onClick={() => setCurrentScreen('home')}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: currentScreen === 'home' ? colors.accent : colors.text,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              fontWeight: currentScreen === 'home' ? 'bold' : 'normal',
+            }}
+          >
+            <i className="fas fa-home text-xl"></i>
+            <span style={{fontSize: 12}}>Home</span>
+          </button>
+          <button
+            onClick={() => setCurrentScreen('logs')}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: currentScreen === 'logs' ? colors.accent : colors.text,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              fontWeight: currentScreen === 'logs' ? 'bold' : 'normal',
+            }}
+          >
+            <i className="fas fa-list-alt text-xl"></i>
+            <span style={{fontSize: 12}}>Activity</span>
+          </button>
+          <button
+            onClick={() => setCurrentScreen('account')}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: currentScreen === 'account' ? colors.accent : colors.text,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              fontWeight: currentScreen === 'account' ? 'bold' : 'normal',
+            }}
+          >
+            <i className="fas fa-user-circle text-xl"></i>
+            <span style={{fontSize: 12}}>Account</span>
+          </button>
+        </nav>
+      );
+    }
+
+    // Render the App
+    ReactDOM.render(<App />, document.getElementById('root'));
+  </script>
+</body>
+</html>
